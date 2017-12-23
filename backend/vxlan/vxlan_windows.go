@@ -1,4 +1,4 @@
-// Copyright 2015 CoreOS, Inc.
+// Copyright 2015 flannel authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,30 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+// +build windows
 
-#ifndef PROXY_H
-#define PROXY_H
+package vxlan
 
-#include <netinet/in.h>
+import (
+	log "github.com/golang/glog"
+)
 
-#ifdef CMD_DEFINE
-#	define cmdexport
-#else
-#	define cmdexport static
-#endif
-
-cmdexport const int CMD_SET_ROUTE = 1;
-cmdexport const int CMD_DEL_ROUTE = 2;
-cmdexport const int CMD_STOP      = 3;
-
-typedef struct command {
-	int       cmd;
-	in_addr_t dest_net;
-	int       dest_net_len;
-	in_addr_t next_hop_ip;
-	short     next_hop_port;
-} command;
-
-void run_proxy(int tun, int sock, int ctl, in_addr_t tun_ip, size_t tun_mtu, int log_errors);
-
-#endif
+func init() {
+	log.Infof("vxlan is not supported on this platform")
+}

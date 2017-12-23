@@ -51,10 +51,11 @@ const (
 	resyncPeriod              = 5 * time.Minute
 	nodeControllerSyncTimeout = 10 * time.Minute
 
-	subnetKubeManagedAnnotation = "flannel.alpha.coreos.com/kube-subnet-manager"
-	backendDataAnnotation       = "flannel.alpha.coreos.com/backend-data"
-	backendTypeAnnotation       = "flannel.alpha.coreos.com/backend-type"
-	backendPublicIPAnnotation   = "flannel.alpha.coreos.com/public-ip"
+	subnetKubeManagedAnnotation        = "flannel.alpha.coreos.com/kube-subnet-manager"
+	backendDataAnnotation              = "flannel.alpha.coreos.com/backend-data"
+	backendTypeAnnotation              = "flannel.alpha.coreos.com/backend-type"
+	backendPublicIPAnnotation          = "flannel.alpha.coreos.com/public-ip"
+	backendPublicIPOverwriteAnnotation = "flannel.alpha.coreos.com/public-ip-overwrite"
 
 	netConfPath = "/etc/kube-flannel/net-conf.json"
 )
@@ -235,10 +236,20 @@ func (ksm *kubeSubnetManager) AcquireLease(ctx context.Context, attrs *subnet.Le
 	if n.Annotations[backendDataAnnotation] != string(bd) ||
 		n.Annotations[backendTypeAnnotation] != attrs.BackendType ||
 		n.Annotations[backendPublicIPAnnotation] != attrs.PublicIP.String() ||
-		n.Annotations[subnetKubeManagedAnnotation] != "true" {
+		n.Annotations[subnetKubeManagedAnnotation] != "true" ||
+		(n.Annotations[backendPublicIPOverwriteAnnotation] != "" && n.Annotations[backendPublicIPOverwriteAnnotation] != attrs.PublicIP.String()) {
 		n.Annotations[backendTypeAnnotation] = attrs.BackendType
 		n.Annotations[backendDataAnnotation] = string(bd)
-		n.Annotations[backendPublicIPAnnotation] = attrs.PublicIP.String()
+		if n.Annotations[backendPublicIPOverwriteAnnotation] != "" {
+			if n.Annotations[backendPublicIPAnnotation] != n.Annotations[backendPublicIPOverwriteAnnotation] {
+				glog.Infof("Overriding public ip with '%s' from node annotation '%s'",
+					n.Annotations[backendPublicIPOverwriteAnnotation],
+					backendPublicIPOverwriteAnnotation)
+				n.Annotations[backendPublicIPAnnotation] = n.Annotations[backendPublicIPOverwriteAnnotation]
+			}
+		} else {
+			n.Annotations[backendPublicIPAnnotation] = attrs.PublicIP.String()
+		}
 		n.Annotations[subnetKubeManagedAnnotation] = "true"
 
 		oldData, err := json.Marshal(cachedNode)
@@ -309,18 +320,6 @@ func (ksm *kubeSubnetManager) RenewLease(ctx context.Context, lease *subnet.Leas
 
 func (ksm *kubeSubnetManager) WatchLease(ctx context.Context, sn ip.IP4Net, cursor interface{}) (subnet.LeaseWatchResult, error) {
 	return subnet.LeaseWatchResult{}, ErrUnimplemented
-}
-
-func (ksm *kubeSubnetManager) AddReservation(ctx context.Context, r *subnet.Reservation) error {
-	return ErrUnimplemented
-}
-
-func (ksm *kubeSubnetManager) RemoveReservation(ctx context.Context, subnet ip.IP4Net) error {
-	return ErrUnimplemented
-}
-
-func (ksm *kubeSubnetManager) ListReservations(ctx context.Context) ([]subnet.Reservation, error) {
-	return nil, ErrUnimplemented
 }
 
 func (ksm *kubeSubnetManager) Name() string {

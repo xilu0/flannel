@@ -99,9 +99,25 @@ Command to create a compute instance with the correct permissions and IP forward
   $ gcloud compute instances create INSTANCE --can-ip-forward --scopes compute-rw
 ```
 
-Route Limits: GCE [limits](https://cloud.google.com/compute/docs/resource-quotas) the number of routes for every *project* to 100.
+Route Limits: GCE [limits](https://cloud.google.com/compute/docs/resource-quotas) the number of routes for every *project* to 100 by default.
 
 
 [alicloud-vpc]: https://github.com/coreos/flannel/blob/master/Documentation/alicloud-vpc-backend.md
 [amazon-vpc]: https://github.com/coreos/flannel/blob/master/Documentation/aws-vpc-backend.md
 [gce-backend]: https://github.com/coreos/flannel/blob/master/Documentation/gce-backend.md
+
+
+### IPIP
+
+Use in-kernel IPIP to encapsulate the packets.
+
+IPIP kind of tunnels is the simplest one. It has the lowest overhead, but can incapsulate only IPv4 unicast traffic, so you will not be able to setup OSPF, RIP or any other multicast-based protocol.
+
+Type:
+* `Type` (string): `ipip`
+* `DirectRouting` (Boolean): Enable direct routes (like `host-gw`) when the hosts are on the same subnet. IPIP will only be used to encapsulate packets to hosts on different subnets. Defaults to `false`.
+
+Note that there may exist two ipip tunnel device `tunl0` and `flannel.ipip`, this is expected and it's not a bug.
+`tunl0` is automatically created per network namespace by ipip kernel module on modprobe ipip module. It is the namespace default IPIP device with attributes local=any and remote=any.
+When receiving IPIP protocol packets, kernel will forward them to tunl0 as a fallback device if it can't find an option whose local/remote attribute matches their src/dst ip address more precisely.
+`flannel.ipip` is created by flannel to achieve one to many ipip network.

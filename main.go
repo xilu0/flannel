@@ -53,6 +53,7 @@ import (
 	_ "github.com/coreos/flannel/backend/extension"
 	_ "github.com/coreos/flannel/backend/gce"
 	_ "github.com/coreos/flannel/backend/hostgw"
+	_ "github.com/coreos/flannel/backend/ipip"
 	_ "github.com/coreos/flannel/backend/udp"
 	_ "github.com/coreos/flannel/backend/vxlan"
 	"github.com/coreos/go-systemd/daemon"
@@ -284,18 +285,13 @@ func main() {
 
 	// Set up ipMasq if needed
 	if opts.ipMasq {
-		err = network.SetupIPMasq(config.Network, bn.Lease())
-		if err != nil {
-			// Continue, even though it failed.
-			log.Errorf("Failed to set up IP Masquerade: %v", err)
-		}
-
-		defer func() {
-			if err := network.TeardownIPMasq(config.Network, bn.Lease()); err != nil {
-				log.Errorf("Failed to tear down IP Masquerade: %v", err)
-			}
-		}()
+		go network.SetupAndEnsureIPTables(network.MasqRules(config.Network, bn.Lease()))
 	}
+
+	// Always enables forwarding rules. This is needed for Docker versions >1.13 (https://docs.docker.com/engine/userguide/networking/default_network/container-communication/#container-communication-between-hosts)
+	// In Docker 1.12 and earlier, the default FORWARD chain policy was ACCEPT.
+	// In Docker 1.13 and later, Docker sets the default policy of the FORWARD chain to DROP.
+	go network.SetupAndEnsureIPTables(network.ForwardRules(config.Network.String()))
 
 	if err := WriteSubnetFile(opts.subnetFile, config.Network, opts.ipMasq, bn); err != nil {
 		// Continue, even though it failed.
